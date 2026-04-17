@@ -26,34 +26,66 @@ def step_add_to_cart(context, product_name):
 
 @when('I remove "{product_name}" from the cart')
 def step_remove_from_cart(context, product_name):
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.common.by import By
+
+    # Current count note karo
+    badges = context.driver.find_elements(
+        By.CLASS_NAME, "shopping_cart_badge"
+    )
+    current_count = int(badges[0].text) if badges else 0
+
     context.inventory_page.remove_from_cart(product_name)
-    time.sleep(1)
+
+    # Count decrease hone ka wait
+    expected_count = current_count - 1
+    if expected_count == 0:
+        WebDriverWait(context.driver, 15).until(
+            lambda d: len(d.find_elements(
+                By.CLASS_NAME, "shopping_cart_badge"
+            )) == 0
+        )
+    else:
+        WebDriverWait(context.driver, 15).until(
+            lambda d: int(d.find_element(
+                By.CLASS_NAME, "shopping_cart_badge"
+            ).text) == expected_count
+        )
 
 @then('the cart count should be "{expected_count}"')
 def step_verify_cart_count(context, expected_count):
-    # badge disappear bhi ho sakta hai agar 0 ho
-    if expected_count == "0":
+    import time
+    from selenium.webdriver.common.by import By
+
+    # 3 second tak badge check karo
+    for _ in range(6):
         try:
-            WebDriverWait(context.driver, 10).until(
-                EC.invisibility_of_element_located(
-                    (By.CLASS_NAME, "shopping_cart_badge")
-                )
-            )
-            actual_count = "0"
-        except:
-            actual_count = context.inventory_page.get_cart_count()
-    else:
-        # badge dikhne aur sahi value hone ka wait
-        WebDriverWait(context.driver, 15).until(
-            lambda d: d.find_element(
+            badges = context.driver.find_elements(
                 By.CLASS_NAME, "shopping_cart_badge"
-            ).text == expected_count
-        )
-        actual_count = context.inventory_page.get_cart_count()
+            )
+            if expected_count == "0":
+                if len(badges) == 0:
+                    return  # pass
+            else:
+                if badges and badges[0].text == expected_count:
+                    return  # pass
+        except:
+            pass
+        time.sleep(0.5)
 
-    assert actual_count == expected_count, \
-        f"Expected cart count '{expected_count}', got '{actual_count}'"
+    # Final check
+    badges = context.driver.find_elements(
+        By.CLASS_NAME, "shopping_cart_badge"
+    )
+    if expected_count == "0":
+        actual = "0" if len(badges) == 0 else badges[0].text
+    else:
+        actual = badges[0].text if badges else "0"
 
+    assert actual == expected_count, \
+        f"Expected cart count '{expected_count}', got '{actual}'"
+        
+        
 @when('I navigate to the cart')
 def step_go_to_cart(context):
     # Direct URL pe jao

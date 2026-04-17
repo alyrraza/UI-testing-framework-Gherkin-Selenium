@@ -1,6 +1,10 @@
 from behave import when, then
 from pages.cart_page import CartPage
 from pages.checkout_page import CheckoutPage
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+import time
 
 @when('I click checkout')
 def step_click_checkout(context):
@@ -22,26 +26,46 @@ def step_enter_empty_zip(context):
 
 @when('I click continue')
 def step_click_continue(context):
-    context.checkout_page.click_continue()
+    # Continue button JS se click karo
+    btn = context.driver.find_element(By.ID, "continue")
+    context.driver.execute_script("arguments[0].click();", btn)
+    time.sleep(1)
 
 @then('I should see the order summary')
 def step_verify_summary(context):
+    # Step two URL ka wait karo
+    WebDriverWait(context.driver, 20).until(
+        EC.url_contains("checkout-step-two")
+    )
     current_url = context.driver.current_url
     assert "checkout-step-two" in current_url, \
         f"Expected order summary, got: {current_url}"
 
 @when('I click finish')
 def step_click_finish(context):
-    context.checkout_page.click_finish()
+    WebDriverWait(context.driver, 20).until(
+        EC.element_to_be_clickable((By.ID, "finish"))
+    )
+    btn = context.driver.find_element(By.ID, "finish")
+    context.driver.execute_script("arguments[0].click();", btn)
 
 @then('I should see "{expected_message}"')
 def step_verify_complete(context, expected_message):
+    WebDriverWait(context.driver, 20).until(
+        EC.presence_of_element_located((By.CLASS_NAME, "complete-header"))
+    )
     actual = context.checkout_page.get_complete_message()
     assert expected_message in actual, \
         f"Expected '{expected_message}', got '{actual}'"
 
 @then('I should see an error "{expected_error}"')
 def step_verify_checkout_error(context, expected_error):
+    # Error message appear hone ka wait
+    WebDriverWait(context.driver, 15).until(
+        EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "[data-test='error']")
+        )
+    )
     actual = context.checkout_page.get_error_message()
     assert expected_error in actual, \
         f"Expected '{expected_error}', got '{actual}'"
