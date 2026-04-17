@@ -25,24 +25,26 @@ class CheckoutPage(BasePage):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
 
         WebDriverWait(self.driver, 20).until(
             EC.element_to_be_clickable((By.ID, "first-name"))
         )
         time.sleep(0.5)
 
-        # Har field ke liye — clear karke fill karo
         for field_id, value in [
             ("first-name", first),
             ("last-name", last),
             ("postal-code", zip_code)
         ]:
             field = self.driver.find_element(By.ID, field_id)
-            # Triple click select all
-            from selenium.webdriver.common.action_chains import ActionChains
-            ActionChains(self.driver).triple_click(field).perform()
+            field.click()
+            # Select all aur delete
+            field.send_keys(Keys.CONTROL + "a")
+            field.send_keys(Keys.DELETE)
             time.sleep(0.1)
-            field.send_keys(value)
+            if value:
+                field.send_keys(value)
             time.sleep(0.2)
 
     def click_continue(self):
