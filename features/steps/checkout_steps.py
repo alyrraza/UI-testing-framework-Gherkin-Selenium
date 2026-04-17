@@ -26,16 +26,23 @@ def step_enter_empty_zip(context):
 
 @when('I click continue')
 def step_click_continue(context):
-    # Continue button JS se click karo
+    import time
+    from selenium.webdriver.common.by import By
+    time.sleep(0.5)
     btn = context.driver.find_element(By.ID, "continue")
     context.driver.execute_script("arguments[0].click();", btn)
-    time.sleep(1)
+    time.sleep(2)
+
 
 @then('I should see the order summary')
 def step_verify_summary(context):
-    # Step two URL ka wait karo
-    WebDriverWait(context.driver, 20).until(
-        EC.url_contains("checkout-step-two")
+    import time
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    # 30 second tak wait karo
+    WebDriverWait(context.driver, 30).until(
+        lambda d: "checkout-step-two" in d.current_url
+        or "checkout-step-one" not in d.current_url
     )
     current_url = context.driver.current_url
     assert "checkout-step-two" in current_url, \

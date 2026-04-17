@@ -21,10 +21,28 @@ class CheckoutPage(BasePage):
     COMPLETE_HEADER  = (By.CLASS_NAME, "complete-header")
 
     def enter_info(self, first: str, last: str, zip_code: str):
-        # checkout form fill karo
-        self.type(*self.FIRST_NAME_INPUT, first)
-        self.type(*self.LAST_NAME_INPUT, last)
-        self.type(*self.ZIP_INPUT, zip_code)
+        import time
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        # Fields load hone ka wait
+        WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located(self.FIRST_NAME_INPUT)
+        )
+        time.sleep(0.5)
+
+        # Har field properly clear karke fill karo
+        first_field = self.driver.find_element(*self.FIRST_NAME_INPUT)
+        self.driver.execute_script("arguments[0].value = '';", first_field)
+        first_field.send_keys(first)
+
+        last_field = self.driver.find_element(*self.LAST_NAME_INPUT)
+        self.driver.execute_script("arguments[0].value = '';", last_field)
+        last_field.send_keys(last)
+
+        zip_field = self.driver.find_element(*self.ZIP_INPUT)
+        self.driver.execute_script("arguments[0].value = '';", zip_field)
+        zip_field.send_keys(zip_code)
 
     def click_continue(self):
         self.click(*self.CONTINUE_BTN)

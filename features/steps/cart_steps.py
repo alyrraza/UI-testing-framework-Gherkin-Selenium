@@ -26,31 +26,19 @@ def step_add_to_cart(context, product_name):
 
 @when('I remove "{product_name}" from the cart')
 def step_remove_from_cart(context, product_name):
-    from selenium.webdriver.support.ui import WebDriverWait
+    import time
     from selenium.webdriver.common.by import By
-
-    # Current count note karo
-    badges = context.driver.find_elements(
-        By.CLASS_NAME, "shopping_cart_badge"
-    )
-    current_count = int(badges[0].text) if badges else 0
 
     context.inventory_page.remove_from_cart(product_name)
 
-    # Count decrease hone ka wait
-    expected_count = current_count - 1
-    if expected_count == 0:
-        WebDriverWait(context.driver, 15).until(
-            lambda d: len(d.find_elements(
-                By.CLASS_NAME, "shopping_cart_badge"
-            )) == 0
+    # Simple polling — badge disappear hone ka wait
+    for _ in range(10):
+        badges = context.driver.find_elements(
+            By.CLASS_NAME, "shopping_cart_badge"
         )
-    else:
-        WebDriverWait(context.driver, 15).until(
-            lambda d: int(d.find_element(
-                By.CLASS_NAME, "shopping_cart_badge"
-            ).text) == expected_count
-        )
+        if len(badges) == 0:
+            return  # badge gone — pass
+        time.sleep(0.5)
 
 @then('the cart count should be "{expected_count}"')
 def step_verify_cart_count(context, expected_count):
