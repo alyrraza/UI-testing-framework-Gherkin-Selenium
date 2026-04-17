@@ -45,14 +45,30 @@ class InventoryPage(BasePage):
         time.sleep(1.5)
         
     def remove_from_cart(self, product_name: str):
-        # same logic — Remove button dhundho
+        import time
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
+
         button_xpath = (
             By.XPATH,
             f"//div[text()='{product_name}']"
             f"/ancestor::div[@class='inventory_item']"
             f"//button[text()='Remove']"
         )
-        self.click(*button_xpath)
+        btn = self.driver.find_element(*button_xpath)
+        self.driver.execute_script("arguments[0].click();", btn)
+
+        # Button text "Add to cart" hone ka wait karo
+        add_btn_xpath = (
+            By.XPATH,
+            f"//div[text()='{product_name}']"
+            f"/ancestor::div[@class='inventory_item']"
+            f"//button[text()='Add to cart']"
+        )
+        WebDriverWait(self.driver, 15).until(
+            EC.presence_of_element_located(add_btn_xpath)
+        )
 
     def go_to_cart(self):
         # Direct URL se cart kholo — CI mein click reliable nahi

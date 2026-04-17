@@ -24,25 +24,38 @@ class CheckoutPage(BasePage):
         import time
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
 
-        # Fields load hone ka wait
         WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located(self.FIRST_NAME_INPUT)
+            EC.presence_of_element_located((By.ID, "first-name"))
         )
+        time.sleep(1)
+
+        # JavaScript se directly value set karo — send_keys se pehle
+        self.driver.execute_script(
+            "document.getElementById('first-name').value = arguments[0];",
+            first
+        )
+        self.driver.execute_script(
+            "document.getElementById('last-name').value = arguments[0];",
+            last
+        )
+        self.driver.execute_script(
+            "document.getElementById('postal-code').value = arguments[0];",
+            zip_code
+        )
+
+        # React ke liye events trigger karo
+        for field_id in ["first-name", "last-name", "postal-code"]:
+            self.driver.execute_script(f"""
+                var el = document.getElementById('{field_id}');
+                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype, 'value').set;
+                nativeInputValueSetter.call(el, el.value);
+                el.dispatchEvent(new Event('input', {{bubbles: true}}));
+                el.dispatchEvent(new Event('change', {{bubbles: true}}));
+            """)
         time.sleep(0.5)
-
-        # Har field properly clear karke fill karo
-        first_field = self.driver.find_element(*self.FIRST_NAME_INPUT)
-        self.driver.execute_script("arguments[0].value = '';", first_field)
-        first_field.send_keys(first)
-
-        last_field = self.driver.find_element(*self.LAST_NAME_INPUT)
-        self.driver.execute_script("arguments[0].value = '';", last_field)
-        last_field.send_keys(last)
-
-        zip_field = self.driver.find_element(*self.ZIP_INPUT)
-        self.driver.execute_script("arguments[0].value = '';", zip_field)
-        zip_field.send_keys(zip_code)
 
     def click_continue(self):
         self.click(*self.CONTINUE_BTN)
