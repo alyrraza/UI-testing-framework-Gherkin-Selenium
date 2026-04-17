@@ -1,0 +1,61 @@
+name: UI Automation Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1 — Code download karo server pe
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2 — Python 3.11 install karo
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Step 3 — Cache pip packages
+      # Jaise grocery store — pehli baar laao, phir ghar mein rakho
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      # Step 4 — Dependencies install karo
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      # Step 5 — Chrome install karo
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      # Step 6 — Test data seed karo
+      - name: Seed test data
+        run: python data/seed_data.py
+
+      # Step 7 — Tests run karo headless mode mein
+      - name: Run Behave Tests
+        run: |
+          behave --no-capture
+        env:
+          CI: "true"
+          BROWSER: chrome
+
+      # Step 8 — Allure results upload karo
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results
+          path: allure-results/
+          retention-days: 7
