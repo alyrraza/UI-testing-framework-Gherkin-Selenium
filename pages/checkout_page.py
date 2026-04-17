@@ -25,36 +25,27 @@ class CheckoutPage(BasePage):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
 
         WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.ID, "first-name"))
+            EC.element_to_be_clickable((By.ID, "first-name"))
         )
-        time.sleep(1)
+        time.sleep(0.5)
 
-        # JavaScript se directly value set karo — send_keys se pehle
-        self.driver.execute_script(
-            "document.getElementById('first-name').value = arguments[0];",
-            first
-        )
-        self.driver.execute_script(
-            "document.getElementById('last-name').value = arguments[0];",
-            last
-        )
-        self.driver.execute_script(
-            "document.getElementById('postal-code').value = arguments[0];",
-            zip_code
-        )
+        def fill_field(field_id, value):
+            field = self.driver.find_element(By.ID, field_id)
+            # Triple click to select all then replace
+            field.click()
+            field.send_keys(Keys.CONTROL + "a")
+            field.send_keys(Keys.DELETE)
+            time.sleep(0.2)
+            if value:
+                field.send_keys(value)
+            time.sleep(0.2)
 
-        # React ke liye events trigger karo
-        for field_id in ["first-name", "last-name", "postal-code"]:
-            self.driver.execute_script(f"""
-                var el = document.getElementById('{field_id}');
-                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                    window.HTMLInputElement.prototype, 'value').set;
-                nativeInputValueSetter.call(el, el.value);
-                el.dispatchEvent(new Event('input', {{bubbles: true}}));
-                el.dispatchEvent(new Event('change', {{bubbles: true}}));
-            """)
+        fill_field("first-name", first)
+        fill_field("last-name", last)
+        fill_field("postal-code", zip_code)
         time.sleep(0.5)
 
     def click_continue(self):
