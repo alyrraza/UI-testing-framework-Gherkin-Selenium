@@ -29,9 +29,6 @@ class InventoryPage(BasePage):
         return "0"
 
     def add_to_cart(self, product_name: str):
-        # product name se Add to Cart button dhundho aur click karo
-        # XPath use kar rahe hain — complex selector
-        # Matlab: "Sauce Labs Backpack" wale item ka button dhundho
         button_xpath = (
             By.XPATH,
             f"//div[text()='{product_name}']"
@@ -39,6 +36,9 @@ class InventoryPage(BasePage):
             f"//button"
         )
         self.click(*button_xpath)
+        # CI mein thoda wait karo — cart update hone do
+        import time
+        time.sleep(0.5)
 
     def remove_from_cart(self, product_name: str):
         # same logic — Remove button dhundho
@@ -63,6 +63,14 @@ class InventoryPage(BasePage):
         self.click(*self.LOGOUT_LINK)
 
     def logout(self):
-        # complete logout
+        # burger menu click karo
         self.open_burger_menu()
+        # sidebar open hone ka wait karo
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
+        WebDriverWait(self.driver, 10).until(
+            EC.visibility_of_element_located((By.ID, "logout_sidebar_link"))
+        )
+        # phir logout click karo
         self.click_logout()

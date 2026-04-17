@@ -27,5 +27,10 @@ class CartPage(BasePage):
         return False
 
     def click_checkout(self):
-        # checkout button click karo
+        # Page load hone ka wait karo pehle
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located(self.CHECKOUT_BTN)
+        )
         self.click(*self.CHECKOUT_BTN)
