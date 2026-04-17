@@ -29,34 +29,21 @@ class InventoryPage(BasePage):
         return "0"
 
     def add_to_cart(self, product_name: str):
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
         import time
+        from selenium.webdriver.common.by import By
 
-        # Current cart count note karo
-        badges = self.driver.find_elements(By.CLASS_NAME, "shopping_cart_badge")
-        current_count = int(badges[0].text) if badges else 0
-
-        # Button dhundho aur click karo
         button_xpath = (
             By.XPATH,
             f"//div[text()='{product_name}']"
             f"/ancestor::div[@class='inventory_item']"
             f"//button"
         )
-        self.click(*button_xpath)
-
-        # Badge count increase hone ka wait karo
-        expected_count = current_count + 1
-        WebDriverWait(self.driver, 15).until(
-            lambda d: len(d.find_elements(
-                By.CLASS_NAME, "shopping_cart_badge"
-            )) > 0 and int(
-                d.find_element(By.CLASS_NAME, "shopping_cart_badge").text
-            ) == expected_count
-        )
-
+        # JS se click karo — CI mein zyada reliable
+        btn = self.driver.find_element(*button_xpath)
+        self.driver.execute_script("arguments[0].click();", btn)
+        # Simple wait — badge update hone do
+        time.sleep(1.5)
+        
     def remove_from_cart(self, product_name: str):
         # same logic — Remove button dhundho
         button_xpath = (

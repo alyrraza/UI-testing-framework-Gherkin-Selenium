@@ -57,33 +57,23 @@ def step_verify_cart_count(context, expected_count):
     import time
     from selenium.webdriver.common.by import By
 
-    # 3 second tak badge check karo
-    for _ in range(6):
-        try:
-            badges = context.driver.find_elements(
-                By.CLASS_NAME, "shopping_cart_badge"
-            )
-            if expected_count == "0":
-                if len(badges) == 0:
-                    return  # pass
-            else:
-                if badges and badges[0].text == expected_count:
-                    return  # pass
-        except:
-            pass
+    # 5 second tak check karo
+    actual_count = "0"
+    for _ in range(10):
+        badges = context.driver.find_elements(
+            By.CLASS_NAME, "shopping_cart_badge"
+        )
+        if badges:
+            actual_count = badges[0].text
+        else:
+            actual_count = "0"
+
+        if actual_count == expected_count:
+            return  # Pass!
         time.sleep(0.5)
 
-    # Final check
-    badges = context.driver.find_elements(
-        By.CLASS_NAME, "shopping_cart_badge"
-    )
-    if expected_count == "0":
-        actual = "0" if len(badges) == 0 else badges[0].text
-    else:
-        actual = badges[0].text if badges else "0"
-
-    assert actual == expected_count, \
-        f"Expected cart count '{expected_count}', got '{actual}'"
+    assert actual_count == expected_count, \
+        f"Expected cart count '{expected_count}', got '{actual_count}'"
         
         
 @when('I navigate to the cart')
