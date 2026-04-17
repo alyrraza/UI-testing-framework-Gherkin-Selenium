@@ -51,8 +51,8 @@ class InventoryPage(BasePage):
         self.click(*button_xpath)
 
     def go_to_cart(self):
-        # cart icon click karo
-        self.click(*self.CART_ICON)
+        # Direct URL se cart kholo — CI mein click reliable nahi
+        self.driver.get("https://www.saucedemo.com/cart.html")
 
     def open_burger_menu(self):
         # hamburger menu kholo

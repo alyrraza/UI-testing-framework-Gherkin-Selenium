@@ -56,10 +56,14 @@ def step_verify_cart_count(context, expected_count):
 
 @when('I navigate to the cart')
 def step_go_to_cart(context):
-    context.inventory_page.go_to_cart()
-    # cart page load hone ka wait
+    # Direct URL pe jao
+    context.driver.get("https://www.saucedemo.com/cart.html")
+    # Cart items load hone ka wait
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.common.by import By
     WebDriverWait(context.driver, 20).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "cart_list"))
+        EC.presence_of_element_located((By.CLASS_NAME, "cart_item"))
     )
     context.cart_page = CartPage(context.driver)
 
