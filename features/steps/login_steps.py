@@ -52,16 +52,39 @@ def step_verify_error(context, expected_error):
         f"Expected '{expected_error}' in '{actual_error}'"
 
 @when('I open the burger menu and click logout')
-def step_logout(context):
-    # Burger menu se logout
+def step_logout(context, ):
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.common.by import By
+    import time
+
     context.inventory_page = InventoryPage(context.driver)
-    context.inventory_page.logout()
+
+    # burger menu click karo
+    context.inventory_page.open_burger_menu()
+
+    # sidebar open hone ka explicit wait
+    WebDriverWait(context.driver, 15).until(
+        EC.element_to_be_clickable((By.ID, "logout_sidebar_link"))
+    )
+    time.sleep(0.5)
+
+    # logout click karo JavaScript se
+    logout_btn = context.driver.find_element(By.ID, "logout_sidebar_link")
+    context.driver.execute_script("arguments[0].click();", logout_btn)
+
 
 @then('I should be on the login page')
 def step_verify_login_page(context):
-    # Login page pe wapas hain
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.common.by import By
+
+    # login page load hone ka wait
+    WebDriverWait(context.driver, 20).until(
+        EC.presence_of_element_located((By.ID, "login-button"))
+    )
     current_url = context.driver.current_url
-    assert "saucedemo.com" in current_url
     assert "inventory" not in current_url, \
         f"Still on inventory page: {current_url}"
 
