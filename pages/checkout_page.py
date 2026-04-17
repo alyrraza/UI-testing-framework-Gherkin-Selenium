@@ -25,27 +25,30 @@ class CheckoutPage(BasePage):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.common.by import By
-        from selenium.webdriver.common.keys import Keys
 
         WebDriverWait(self.driver, 20).until(
             EC.element_to_be_clickable((By.ID, "first-name"))
         )
-        time.sleep(0.5)
+        time.sleep(1)
 
-        for field_id, value in [
-            ("first-name", first),
-            ("last-name", last),
-            ("postal-code", zip_code)
-        ]:
-            field = self.driver.find_element(By.ID, field_id)
-            field.click()
-            # Select all aur delete
-            field.send_keys(Keys.CONTROL + "a")
-            field.send_keys(Keys.DELETE)
-            time.sleep(0.1)
-            if value:
-                field.send_keys(value)
-            time.sleep(0.2)
+        # React fields ke liye yeh single reliable method hai
+        def set_react_field(field_id, value):
+            script = """
+            var input = document.getElementById(arguments[0]);
+            var nativeSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value').set;
+            nativeSetter.call(input, arguments[1]);
+            input.dispatchEvent(new Event('input', {bubbles: true}));
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+            input.dispatchEvent(new Event('blur', {bubbles: true}));
+            """
+            self.driver.execute_script(script, field_id, value)
+            time.sleep(0.3)
+
+        set_react_field("first-name", first)
+        set_react_field("last-name", last)
+        set_react_field("postal-code", zip_code)
+        time.sleep(0.5)
 
     def click_continue(self):
         self.click(*self.CONTINUE_BTN)

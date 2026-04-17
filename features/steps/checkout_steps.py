@@ -30,11 +30,16 @@ def step_enter_empty_zip(context):
 
 @when('I click continue')
 def step_click_continue(context):
+    import time
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
     time.sleep(1)
-    # Form ko JavaScript se submit karo
-    context.driver.execute_script("""
-        document.querySelector('form').submit();
-    """)
+    btn = WebDriverWait(context.driver, 10).until(
+        EC.element_to_be_clickable((By.ID, "continue"))
+    )
+    context.driver.execute_script("arguments[0].click();", btn)
     time.sleep(3)
 
 @then('I should see the order summary')
