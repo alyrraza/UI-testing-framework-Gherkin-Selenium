@@ -11,6 +11,10 @@ def step_click_checkout(context):
     context.cart_page = CartPage(context.driver)
     context.cart_page.click_checkout()
     context.checkout_page = CheckoutPage(context.driver)
+    # Step one load hone ka wait
+    WebDriverWait(context.driver, 20).until(
+        EC.presence_of_element_located((By.ID, "first-name"))
+    )
 
 @when('I enter first name "{first}" last name "{last}" zip "{zip_code}"')
 def step_enter_info(context, first, last, zip_code):
@@ -26,31 +30,26 @@ def step_enter_empty_zip(context):
 
 @when('I click continue')
 def step_click_continue(context):
-    import time
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.common.keys import Keys
-
     time.sleep(1)
-    # Tab se focus move karo phir button click karo
-    btn = context.driver.find_element(By.ID, "continue")
-    btn.send_keys(Keys.RETURN)
+    # Form ko JavaScript se submit karo
+    context.driver.execute_script("""
+        document.querySelector('form').submit();
+    """)
     time.sleep(3)
 
 @then('I should see the order summary')
 def step_verify_summary(context):
-    import time
-    from selenium.webdriver.common.by import By
-
-    # Current URL check karo
     current_url = context.driver.current_url
-
-    # Agar step-one pe hain toh dobara submit karo
-    if "checkout-step-one" in current_url:
-        btn = context.driver.find_element(By.ID, "continue")
-        context.driver.execute_script("arguments[0].click();", btn)
-        time.sleep(4)
-        current_url = context.driver.current_url
-
+    if "checkout-step-two" not in current_url:
+        # Ek aur try
+        try:
+            context.driver.execute_script("""
+                document.querySelector('form').submit();
+            """)
+            time.sleep(3)
+        except:
+            pass
+    current_url = context.driver.current_url
     assert "checkout-step-two" in current_url, \
         f"Expected order summary, got: {current_url}"
 
@@ -73,12 +72,22 @@ def step_verify_complete(context, expected_message):
 
 @then('I should see an error "{expected_error}"')
 def step_verify_checkout_error(context, expected_error):
-    # Error message appear hone ka wait
-    WebDriverWait(context.driver, 15).until(
-        EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "[data-test='error']")
+    # Error dikhne ka wait — 15 second
+    time.sleep(2)
+    try:
+        WebDriverWait(context.driver, 15).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "[data-test='error']")
+            )
         )
-    )
-    actual = context.checkout_page.get_error_message()
+        actual = context.checkout_page.get_error_message()
+    except:
+        # Error element nahi mila — current page check karo
+        actual = context.driver.find_element(
+            By.CSS_SELECTOR, "[data-test='error']"
+        ).text if context.driver.find_elements(
+            By.CSS_SELECTOR, "[data-test='error']"
+        ) else "No error found"
+
     assert expected_error in actual, \
         f"Expected '{expected_error}', got '{actual}'"

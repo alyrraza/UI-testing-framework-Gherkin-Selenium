@@ -25,28 +25,25 @@ class CheckoutPage(BasePage):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.common.by import By
-        from selenium.webdriver.common.keys import Keys
 
         WebDriverWait(self.driver, 20).until(
             EC.element_to_be_clickable((By.ID, "first-name"))
         )
         time.sleep(0.5)
 
-        def fill_field(field_id, value):
+        # Har field ke liye — clear karke fill karo
+        for field_id, value in [
+            ("first-name", first),
+            ("last-name", last),
+            ("postal-code", zip_code)
+        ]:
             field = self.driver.find_element(By.ID, field_id)
-            # Triple click to select all then replace
-            field.click()
-            field.send_keys(Keys.CONTROL + "a")
-            field.send_keys(Keys.DELETE)
+            # Triple click select all
+            from selenium.webdriver.common.action_chains import ActionChains
+            ActionChains(self.driver).triple_click(field).perform()
+            time.sleep(0.1)
+            field.send_keys(value)
             time.sleep(0.2)
-            if value:
-                field.send_keys(value)
-            time.sleep(0.2)
-
-        fill_field("first-name", first)
-        fill_field("last-name", last)
-        fill_field("postal-code", zip_code)
-        time.sleep(0.5)
 
     def click_continue(self):
         self.click(*self.CONTINUE_BTN)
