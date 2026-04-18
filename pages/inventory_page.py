@@ -1,96 +1,128 @@
-# inventory_page.py
-# Products page — login ke baad yahan aate hain
+"""
+InventoryPage — Products listing after login.
+
+Migrated by Claude Opus 4.7 to use SmartLocator for every static element.
+"""
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
 from pages.base_page import BasePage
+from utils.smart_locator import SmartLocator
+
 
 class InventoryPage(BasePage):
 
     URL = "/inventory.html"
 
-    # Elements
-    PAGE_TITLE      = (By.CLASS_NAME, "title")
-    CART_BADGE      = (By.CLASS_NAME, "shopping_cart_badge")
-    CART_ICON       = (By.CLASS_NAME, "shopping_cart_link")
-    BURGER_MENU     = (By.ID, "react-burger-menu-btn")
-    LOGOUT_LINK     = (By.ID, "logout_sidebar_link")
-    INVENTORY_ITEMS = (By.CLASS_NAME, "inventory_item")
+    PAGE_TITLE = SmartLocator(
+        name="inventory_page_title",
+        description="Header title on the products page (shows 'Products')",
+        expected_tag="span",
+        expected_text="products",
+        strategies=[
+            (By.CLASS_NAME, "title"),
+            (By.CSS_SELECTOR, ".header_secondary_container .title"),
+            (By.XPATH, "//*[contains(@class,'title')]"),
+        ],
+    )
+
+    CART_BADGE = SmartLocator(
+        name="cart_count_badge",
+        description="Small badge on the cart icon showing item count",
+        strategies=[
+            (By.CLASS_NAME, "shopping_cart_badge"),
+            (By.CSS_SELECTOR, ".shopping_cart_link .shopping_cart_badge"),
+        ],
+    )
+
+    CART_ICON = SmartLocator(
+        name="cart_icon_link",
+        description="Shopping cart icon in the top right header",
+        strategies=[
+            (By.CLASS_NAME, "shopping_cart_link"),
+            (By.CSS_SELECTOR, "a[href*='cart']"),
+        ],
+    )
+
+    BURGER_MENU = SmartLocator(
+        name="burger_menu_button",
+        description="Hamburger menu button that opens the side drawer",
+        expected_tag="button",
+        strategies=[
+            (By.ID, "react-burger-menu-btn"),
+            (By.CSS_SELECTOR, "button.bm-burger-button"),
+            (By.XPATH, "//button[contains(@class,'burger')]"),
+        ],
+    )
+
+    LOGOUT_LINK = SmartLocator(
+        name="logout_sidebar_link",
+        description="Logout link inside the side drawer menu",
+        expected_text="logout",
+        strategies=[
+            (By.ID, "logout_sidebar_link"),
+            (By.XPATH, "//a[normalize-space(text())='Logout']"),
+            (By.CSS_SELECTOR, "a[data-test='logout-sidebar-link']"),
+        ],
+    )
+
+    # ----------------------------------------------------------------- reads
 
     def get_page_title(self) -> str:
-        # page title padhо — "Products" hona chahiye
-        return self.get_text(*self.PAGE_TITLE)
+        return self.get_text(self.PAGE_TITLE)
 
     def get_cart_count(self) -> str:
-        # cart mein kitne items hain
-        if self.is_visible(*self.CART_BADGE):
-            return self.get_text(*self.CART_BADGE)
-        # badge nahi dikhta matlab cart khali hai
+        if self.is_visible(self.CART_BADGE):
+            return self.get_text(self.CART_BADGE)
         return "0"
 
+    # ---------------------------------------------------------------- writes
+
     def add_to_cart(self, product_name: str):
-        import time
-        from selenium.webdriver.common.by import By
-
+        """Find the product's Add-to-cart button by walking up from the title."""
         button_xpath = (
             By.XPATH,
             f"//div[text()='{product_name}']"
             f"/ancestor::div[@class='inventory_item']"
-            f"//button"
+            f"//button",
         )
-        # JS se click karo — CI mein zyada reliable
         btn = self.driver.find_element(*button_xpath)
         self.driver.execute_script("arguments[0].click();", btn)
-        # Simple wait — badge update hone do
-        time.sleep(1.5)
-        
+        self.smart_wait.wait_for_dom_stable(timeout=5, quiet_ms=300)
+
     def remove_from_cart(self, product_name: str):
-        import time
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
-
         button_xpath = (
             By.XPATH,
             f"//div[text()='{product_name}']"
             f"/ancestor::div[@class='inventory_item']"
-            f"//button[text()='Remove']"
+            f"//button[text()='Remove']",
         )
         btn = self.driver.find_element(*button_xpath)
         self.driver.execute_script("arguments[0].click();", btn)
 
-        # Button text "Add to cart" hone ka wait karo
+        # Wait for the toggle back to "Add to cart" — deterministic end-state.
         add_btn_xpath = (
             By.XPATH,
             f"//div[text()='{product_name}']"
             f"/ancestor::div[@class='inventory_item']"
-            f"//button[text()='Add to cart']"
+            f"//button[text()='Add to cart']",
         )
         WebDriverWait(self.driver, 15).until(
             EC.presence_of_element_located(add_btn_xpath)
         )
 
     def go_to_cart(self):
-        # Direct URL se cart kholo — CI mein click reliable nahi
         self.driver.get("https://www.saucedemo.com/cart.html")
 
     def open_burger_menu(self):
-        # hamburger menu kholo
-        self.click(*self.BURGER_MENU)
+        self.click(self.BURGER_MENU)
 
     def click_logout(self):
-        # logout link click karo
-        self.click(*self.LOGOUT_LINK)
+        self.click(self.LOGOUT_LINK)
 
     def logout(self):
-        # burger menu click karo
         self.open_burger_menu()
-        # sidebar open hone ka wait karo
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
-        WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located((By.ID, "logout_sidebar_link"))
-        )
-        # phir logout click karo
+        self.smart_wait.wait_for_dom_stable(timeout=5, quiet_ms=300)
         self.click_logout()

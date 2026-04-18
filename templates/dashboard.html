@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Live Test Execution · Claude Opus 4.7</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"
+        integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO"
+        crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #07090f;
+    --bg-elev: #0f1420;
+    --bg-card: #141b2d;
+    --bg-subtle: #1a2338;
+    --text: #eaf0fa;
+    --text-dim: #8a97ab;
+    --text-faint: #5a6475;
+    --border: #22314a;
+    --border-strong: #2e4066;
+    --green: #00e6a8;
+    --green-glow: rgba(0, 230, 168, 0.35);
+    --red: #ff6a7a;
+    --red-glow: rgba(255, 106, 122, 0.35);
+    --amber: #ffb454;
+    --blue: #6fa8ff;
+    --violet: #b48dff;
+    --grad: linear-gradient(135deg, #00e6a8 0%, #6fa8ff 50%, #b48dff 100%);
+    --grad-fail: linear-gradient(135deg, #ff6a7a 0%, #ffb454 100%);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 800px 500px at 15% 0%, rgba(0, 230, 168, 0.10), transparent 70%),
+      radial-gradient(ellipse 800px 500px at 85% 0%, rgba(180, 141, 255, 0.10), transparent 70%),
+      radial-gradient(ellipse 1200px 600px at 50% 100%, rgba(111, 168, 255, 0.06), transparent 70%),
+      var(--bg);
+    overflow-x: hidden;
+  }
+
+  /* floating particles ambience */
+  .bg-orbs {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .orb {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.22;
+    animation: float 18s ease-in-out infinite;
+  }
+  .orb.a { width: 380px; height: 380px; background: #00e6a8; top: -100px; left: -80px; }
+  .orb.b { width: 440px; height: 440px; background: #b48dff; top: 40%; right: -120px; animation-delay: -6s; }
+  .orb.c { width: 320px; height: 320px; background: #6fa8ff; bottom: -80px; left: 40%; animation-delay: -12s; }
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(40px, -60px) scale(1.1); }
+  }
+
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1400px; margin: 0 auto;
+    padding: 28px 28px 80px;
+  }
+
+  /* ============================================================ header */
+  header.top {
+    display: flex; align-items: center; gap: 16px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+  .logo-mark {
+    width: 44px; height: 44px;
+    background: var(--grad);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 18px; color: #07090f;
+    box-shadow: 0 6px 30px var(--green-glow);
+  }
+  .brand {
+    display: flex; flex-direction: column;
+    line-height: 1.2;
+  }
+  .brand-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand-sub {
+    font-size: 11px; color: var(--text-dim); letter-spacing: 0.18em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+  .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 12px; letter-spacing: 0.08em;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text-dim);
+  }
+  .pill .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-faint);
+    box-shadow: 0 0 8px var(--text-faint);
+  }
+  .pill[data-status="running"] .dot {
+    background: var(--green); box-shadow: 0 0 12px var(--green);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .pill[data-status="completed"] .dot { background: var(--green); }
+  .pill[data-status="failed"] .dot { background: var(--red); }
+  .pill[data-status="disconnected"] .dot { background: var(--amber); }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.4); opacity: 0.6; }
+  }
+
+  /* ============================================================ hero */
+  section.hero {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-elev));
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  section.hero::before {
+    content: '';
+    position: absolute; inset: 0 0 auto 0; height: 2px;
+    background: var(--grad);
+    transform: scaleX(var(--progress, 0));
+    transform-origin: left;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hero-row {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 28px;
+    align-items: center;
+  }
+  .current-label {
+    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+  .current-value {
+    font-size: 15px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text);
+  }
+  .current-step {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center; gap: 12px;
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(0, 230, 168, 0.2);
+    border-top-color: var(--green);
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-ring {
+    position: relative;
+    width: 180px; height: 180px; justify-self: end;
+  }
+  .progress-ring svg { transform: rotate(-90deg); }
+  .progress-ring circle { fill: none; stroke-width: 10; }
+  .progress-ring .track { stroke: var(--bg-subtle); }
+  .progress-ring .bar {
+    stroke: url(#gradProgress);
+    stroke-linecap: round;
+    stroke-dasharray: 502;
+    stroke-dashoffset: 502;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    filter: drop-shadow(0 0 8px var(--green-glow));
+  }
+  .progress-ring .label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .progress-ring .label .pct {
+    font-size: 36px; font-weight: 700; letter-spacing: -0.02em;
+  }
+  .progress-ring .label .sub {
+    font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .tag-row {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+  }
+  .tag {
+    font-size: 10px; letter-spacing: 0.1em;
+    color: var(--blue);
+    background: rgba(111, 168, 255, 0.08);
+    border: 1px solid rgba(111, 168, 255, 0.25);
+    border-radius: 6px;
+    padding: 3px 8px;
+    text-transform: uppercase;
+  }
+
+  /* ============================================================ stats */
+  section.stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--accent, var(--grad));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .stat:hover::after { opacity: 0.04; }
+  .stat .label {
+    font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .stat .value {
+    font-size: 38px; font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .stat .sub {
+    font-size: 11px; color: var(--text-dim); margin-top: 8px;
+  }
+  .stat.passed .value { color: var(--green); }
+  .stat.failed .value { color: var(--red); }
+  .stat.healed .value { color: var(--violet); }
+  .stat.healed .value::after { content: ''; }
+  .stat .value.bump { animation: bump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.24); }
+    100% { transform: scale(1); }
+  }
+
+  /* ============================================================ grid */
+  section.feeds {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-head h2 {
+    font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--text-dim);
+    font-weight: 600;
+  }
+  .panel-head .count {
+    margin-left: auto;
+    font-size: 11px; color: var(--text-faint);
+  }
+  .panel-body {
+    max-height: 520px; overflow-y: auto;
+    padding: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .panel-body::-webkit-scrollbar { width: 6px; }
+  .panel-body::-webkit-scrollbar-thumb {
+    background: var(--border-strong); border-radius: 3px;
+  }
+
+  /* ------------------------------------------------ step items */
+  .step-item {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center; gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    animation: slideIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: background 0.15s;
+  }
+  .step-item:hover { background: var(--bg-subtle); }
+  .step-item .icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800;
+  }
+  .step-item.passed .icon { background: var(--green); color: #07090f; }
+  .step-item.failed .icon { background: var(--red); color: #07090f; }
+  .step-item.running .icon {
+    background: var(--bg-subtle);
+    border: 2px solid var(--blue);
+    animation: pulseRing 1s infinite;
+  }
+  @keyframes pulseRing {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(111, 168, 255, 0.5); }
+    50%      { box-shadow: 0 0 0 6px rgba(111, 168, 255, 0); }
+  }
+  .step-item .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .step-item .text .kw { color: var(--violet); margin-right: 6px; }
+  .step-item .dur {
+    font-size: 11px; color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .step-item.failed { background: rgba(255, 106, 122, 0.06); }
+
+  /* ------------------------------------------------ heal cards */
+  .heal-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    background: linear-gradient(180deg, rgba(180, 141, 255, 0.08), rgba(180, 141, 255, 0.02));
+    border: 1px solid rgba(180, 141, 255, 0.25);
+    animation: healIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .heal-card::before {
+    content: 'SELF-HEAL';
+    position: absolute; top: 10px; right: 12px;
+    font-size: 9px; letter-spacing: 0.2em; font-weight: 800;
+    color: var(--violet);
+    background: rgba(180, 141, 255, 0.12);
+    padding: 3px 8px; border-radius: 6px;
+  }
+  .heal-card h4 {
+    font-size: 14px; font-weight: 600; margin-bottom: 4px;
+    padding-right: 90px;
+  }
+  .heal-card .scenario {
+    font-size: 11px; color: var(--text-dim); margin-bottom: 10px;
+  }
+  .heal-diff {
+    font-size: 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+    font-family: inherit;
+  }
+  .heal-diff .row {
+    display: flex; gap: 8px; padding: 2px 0;
+    word-break: break-all;
+  }
+  .heal-diff .row .mk {
+    font-weight: 800; width: 12px; text-align: center;
+  }
+  .heal-diff .rm { color: var(--red); }
+  .heal-diff .rm .mk { color: var(--red); }
+  .heal-diff .ad { color: var(--green); }
+  .heal-diff .ad .mk { color: var(--green); }
+  .heal-meta {
+    display: flex; gap: 10px; margin-top: 8px;
+    font-size: 11px;
+  }
+  .heal-meta .chip {
+    padding: 2px 8px; border-radius: 6px;
+    background: var(--bg-subtle);
+    color: var(--text-dim);
+  }
+  .heal-meta .chip.conf-hi { color: var(--green); background: rgba(0, 230, 168, 0.1); }
+  .heal-meta .chip.conf-md { color: var(--amber); background: rgba(255, 180, 84, 0.1); }
+  .heal-meta .chip.conf-lo { color: var(--red);   background: rgba(255, 106, 122, 0.1); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes healIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes flash {
+    0%, 100% { background: transparent; }
+    20%      { background: rgba(0, 230, 168, 0.12); }
+  }
+
+  .empty-state {
+    padding: 40px 20px; text-align: center;
+    color: var(--text-faint); font-size: 13px;
+  }
+
+  /* ============================================================ overlay */
+  .completion-overlay {
+    position: fixed; inset: 0; z-index: 40;
+    display: none;
+    align-items: center; justify-content: center;
+    background: radial-gradient(circle at center, rgba(0, 230, 168, 0.1), transparent 60%),
+                rgba(7, 9, 15, 0.7);
+    backdrop-filter: blur(6px);
+    animation: overlayIn 0.5s ease;
+  }
+  .completion-overlay.show { display: flex; }
+  .completion-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 48px;
+    text-align: center;
+    animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    max-width: 440px;
+  }
+  .completion-card .check {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--grad);
+    margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; color: #07090f; font-weight: 900;
+    box-shadow: 0 10px 40px var(--green-glow);
+  }
+  .completion-card.failed .check {
+    background: var(--grad-fail);
+    box-shadow: 0 10px 40px var(--red-glow);
+  }
+  .completion-card h2 {
+    font-size: 28px; letter-spacing: -0.02em; margin-bottom: 6px;
+  }
+  .completion-card p {
+    color: var(--text-dim); font-size: 14px; line-height: 1.6;
+  }
+  .completion-summary {
+    margin-top: 24px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .completion-summary .box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px;
+  }
+  .completion-summary .box .n {
+    font-size: 22px; font-weight: 700;
+  }
+  .completion-summary .box .l {
+    font-size: 10px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--text-dim);
+    margin-top: 2px;
+  }
+  @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ============================================================ footer */
+  footer.foot {
+    margin-top: 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: var(--text-faint);
+    letter-spacing: 0.1em;
+  }
+  footer.foot b { color: var(--green); }
+
+  @media (max-width: 900px) {
+    section.feeds { grid-template-columns: 1fr; }
+    section.stats { grid-template-columns: repeat(2, 1fr); }
+    .hero-row { grid-template-columns: 1fr; }
+    .progress-ring { justify-self: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb a"></div>
+  <div class="orb b"></div>
+  <div class="orb c"></div>
+</div>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo-mark">C</div>
+    <div class="brand">
+      <div class="brand-title">Live Execution Dashboard</div>
+      <div class="brand-sub">Engineered by Claude Opus 4.7</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="pill" id="connPill" data-status="disconnected">
+      <span class="dot"></span>
+      <span id="connLabel">CONNECTING…</span>
+    </div>
+    <div class="pill" id="timerPill">
+      <span id="timerLabel">00:00</span>
+    </div>
+  </header>
+
+  <!-- =========================================================== HERO -->
+  <section class="hero" id="hero" style="--progress: 0;">
+    <div class="hero-row">
+      <div>
+        <div class="current-label">Feature</div>
+        <div class="current-value" id="curFeature">— waiting for run —</div>
+
+        <div class="current-label" style="margin-top: 14px;">Scenario</div>
+        <div class="current-value" id="curScenario">—</div>
+        <div class="tag-row" id="curTags"></div>
+
+        <div class="current-step" id="curStepBox">
+          <div class="spinner" id="curSpinner" style="display:none"></div>
+          <div id="curStep" style="color: var(--text-dim);">Awaiting first step…</div>
+        </div>
+      </div>
+
+      <div class="progress-ring">
+        <svg width="180" height="180">
+          <defs>
+            <linearGradient id="gradProgress" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"  stop-color="#00e6a8"/>
+              <stop offset="50%" stop-color="#6fa8ff"/>
+              <stop offset="100%" stop-color="#b48dff"/>
+            </linearGradient>
+          </defs>
+          <circle class="track" cx="90" cy="90" r="80"></circle>
+          <circle class="bar"   cx="90" cy="90" r="80" id="progressBar"></circle>
+        </svg>
+        <div class="label">
+          <div class="pct" id="progressPct">0%</div>
+          <div class="sub"><span id="progressFrac">0 / 0</span> scenarios</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== STATS -->
+  <section class="stats">
+    <div class="stat">
+      <div class="label">Scenarios Run</div>
+      <div class="value" id="stRun">0</div>
+      <div class="sub">of <span id="stTotal">0</span> planned</div>
+    </div>
+    <div class="stat passed">
+      <div class="label">Passed</div>
+      <div class="value" id="stPassed">0</div>
+      <div class="sub">&nbsp;</div>
+    </div>
+    <div class="stat failed">
+      <div class="label">Failed</div>
+      <div class="value" id="stFailed">0</div>
+      <div class="sub">&nbsp;</div>
+    </div>
+    <div class="stat healed">
+      <div class="label">Self-Heals</div>
+      <div class="value" id="stHealed">0</div>
+      <div class="sub">locators auto-repaired</div>
+    </div>
+  </section>
+
+  <!-- ========================================================== FEEDS -->
+  <section class="feeds">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Step Timeline</h2>
+        <span class="count" id="stepCount">0 steps</span>
+      </div>
+      <div class="panel-body" id="stepFeed">
+        <div class="empty-state">No steps yet. Waiting for the run to begin.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Self-Heal Events</h2>
+        <span class="count" id="healCount">0 heals</span>
+      </div>
+      <div class="panel-body" id="healFeed">
+        <div class="empty-state">No healing events yet. When a locator breaks, the recovery will appear here live.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div>ENGINEERED BY <b>CLAUDE OPUS 4.7</b></div>
+    <div id="footUrl">—</div>
+  </footer>
+</div>
+
+<!-- =========================================================== OVERLAY -->
+<div class="completion-overlay" id="overlay">
+  <div class="completion-card" id="overlayCard">
+    <div class="check" id="overlayIcon">✓</div>
+    <h2 id="overlayTitle">Run Complete</h2>
+    <p id="overlaySub">All scenarios finished. Allure report and healing dashboard are ready.</p>
+    <div class="completion-summary">
+      <div class="box"><div class="n" id="ovPassed">0</div><div class="l">passed</div></div>
+      <div class="box"><div class="n" id="ovFailed">0</div><div class="l">failed</div></div>
+      <div class="box"><div class="n" id="ovHealed">0</div><div class="l">healed</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================================================================
+// LIVE DASHBOARD CLIENT
+// Streams behave lifecycle + heal events over Socket.IO.
+// ====================================================================
+
+const socket = io({ transports: ['websocket', 'polling'] });
+
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  connPill:   $('connPill'),
+  connLabel:  $('connLabel'),
+  timerLabel: $('timerLabel'),
+  footUrl:    $('footUrl'),
+
+  curFeature:  $('curFeature'),
+  curScenario: $('curScenario'),
+  curTags:     $('curTags'),
+  curStep:     $('curStep'),
+  curSpinner:  $('curSpinner'),
+  hero:        $('hero'),
+  progressBar: $('progressBar'),
+  progressPct: $('progressPct'),
+  progressFrac:$('progressFrac'),
+
+  stRun:    $('stRun'),
+  stTotal:  $('stTotal'),
+  stPassed: $('stPassed'),
+  stFailed: $('stFailed'),
+  stHealed: $('stHealed'),
+
+  stepFeed: $('stepFeed'),
+  healFeed: $('healFeed'),
+  stepCount:$('stepCount'),
+  healCount:$('healCount'),
+
+  overlay:     $('overlay'),
+  overlayCard: $('overlayCard'),
+  overlayIcon: $('overlayIcon'),
+  overlayTitle:$('overlayTitle'),
+  overlaySub:  $('overlaySub'),
+  ovPassed:    $('ovPassed'),
+  ovFailed:    $('ovFailed'),
+  ovHealed:    $('ovHealed'),
+};
+
+els.footUrl.textContent = window.location.host;
+
+// -------------------------------------------------------------- timer
+
+let runStartedAt = null;
+let timerHandle = null;
+
+function fmtElapsed(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+function startTimer(ts) {
+  runStartedAt = ts * 1000;
+  stopTimer();
+  timerHandle = setInterval(() => {
+    const sec = (Date.now() - runStartedAt) / 1000;
+    els.timerLabel.textContent = fmtElapsed(sec);
+  }, 500);
+}
+function stopTimer() {
+  if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+}
+
+// -------------------------------------------------------- count-up bump
+
+function bumpNumber(el, newValue) {
+  const current = parseInt(el.textContent, 10) || 0;
+  if (newValue === current) return;
+  el.textContent = newValue;
+  el.classList.remove('bump');
+  // force reflow so animation restarts if called rapidly
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+// ---------------------------------------------------------- progress
+
+function updateProgress(run, total) {
+  const pct = total > 0 ? Math.min(100, (run / total) * 100) : 0;
+  const CIRC = 2 * Math.PI * 80;              // 502.65
+  const offset = CIRC - (CIRC * pct / 100);
+  els.progressBar.style.strokeDashoffset = offset.toFixed(1);
+  els.progressPct.textContent = Math.round(pct) + '%';
+  els.progressFrac.textContent = run + ' / ' + total;
+  els.hero.style.setProperty('--progress', pct / 100);
+}
+
+// ---------------------------------------------------------- feeds
+
+function addStepItem({keyword, name, status, duration_s}) {
+  // remove empty state
+  const empty = els.stepFeed.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'step-item ' + (status || 'running');
+
+  const icon = {
+    passed:  '✓',
+    failed:  '✕',
+    running: '…',
+  }[status] || '…';
+
+  const dur = duration_s != null ? Math.round(duration_s * 1000) + 'ms' : '';
+
+  div.innerHTML = `
+    <div class="icon">${icon}</div>
+    <div class="text"><span class="kw">${escapeHtml(keyword || '')}</span>${escapeHtml(name || '')}</div>
+    <div class="dur">${dur}</div>
+  `;
+  els.stepFeed.insertBefore(div, els.stepFeed.firstChild);
+
+  // cap at 60 items so long runs don't grow the DOM unboundedly
+  const items = els.stepFeed.querySelectorAll('.step-item');
+  if (items.length > 60) items[items.length - 1].remove();
+
+  els.stepCount.textContent = els.stepFeed.querySelectorAll('.step-item').length + ' steps';
+}
+
+function addHealCard(e) {
+  const empty = els.healFeed.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const confPct = Math.round((e.confidence || 0) * 100);
+  const confClass = confPct >= 80 ? 'conf-hi' : confPct >= 65 ? 'conf-md' : 'conf-lo';
+
+  const card = document.createElement('div');
+  card.className = 'heal-card';
+  card.innerHTML = `
+    <h4>${escapeHtml(e.locator_name || 'unnamed')}</h4>
+    <div class="scenario">${escapeHtml(e.scenario_name || e.description || '')}</div>
+    <div class="heal-diff">
+      <div class="row rm"><span class="mk">−</span><code>${escapeHtml(e.original_strategy || '')}</code></div>
+      <div class="row ad"><span class="mk">+</span><code>${escapeHtml(e.healed_strategy || '')}</code></div>
+    </div>
+    <div class="heal-meta">
+      <span class="chip ${confClass}">${confPct}% confidence</span>
+      <span class="chip">${escapeHtml(e.stage || '')}</span>
+    </div>
+  `;
+  els.healFeed.insertBefore(card, els.healFeed.firstChild);
+  els.healCount.textContent = els.healFeed.querySelectorAll('.heal-card').length + ' heals';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+// ---------------------------------------------------------- socket
+
+socket.on('connect', () => {
+  els.connPill.dataset.status = 'running';
+  els.connLabel.textContent = 'LIVE';
+});
+socket.on('disconnect', () => {
+  els.connPill.dataset.status = 'disconnected';
+  els.connLabel.textContent = 'DISCONNECTED';
+  stopTimer();
+});
+
+socket.on('state.snapshot', (s) => {
+  // Late-joined — rehydrate from server snapshot.
+  if (s.current_feature)  els.curFeature.textContent = s.current_feature;
+  if (s.current_scenario) els.curScenario.textContent = s.current_scenario;
+  if (s.current_step)     els.curStep.textContent = s.current_step;
+  els.stTotal.textContent = s.total_scenarios || 0;
+  bumpNumber(els.stRun,    s.scenarios_run || 0);
+  bumpNumber(els.stPassed, s.passed || 0);
+  bumpNumber(els.stFailed, s.failed || 0);
+  bumpNumber(els.stHealed, s.healed || 0);
+  updateProgress(s.scenarios_run || 0, s.total_scenarios || 0);
+
+  if (s.started_at) {
+    startTimer(s.started_at);
+  }
+  if (s.status === 'completed') {
+    showOverlay(s);
+  }
+});
+
+socket.on('run.start', (d) => {
+  els.stTotal.textContent = d.total_scenarios;
+  updateProgress(0, d.total_scenarios);
+  startTimer(d.started_at);
+  els.overlay.classList.remove('show');
+});
+
+socket.on('feature.start', (d) => {
+  els.curFeature.textContent = d.name;
+});
+
+socket.on('scenario.start', (d) => {
+  els.curScenario.textContent = d.name;
+  els.curTags.innerHTML = '';
+  (d.tags || []).forEach(t => {
+    const el = document.createElement('span');
+    el.className = 'tag';
+    el.textContent = '@' + t;
+    els.curTags.appendChild(el);
+  });
+});
+
+socket.on('scenario.end', (d) => {
+  bumpNumber(els.stRun,    d.scenarios_run);
+  bumpNumber(els.stPassed, d.passed);
+  bumpNumber(els.stFailed, d.failed);
+  updateProgress(d.scenarios_run, d.total_scenarios);
+});
+
+socket.on('step.start', (d) => {
+  els.curStep.textContent = (d.keyword || '') + ' ' + (d.name || '');
+  els.curStep.style.color = 'var(--text)';
+  els.curSpinner.style.display = 'inline-block';
+});
+
+socket.on('step.end', (d) => {
+  els.curSpinner.style.display = 'none';
+  addStepItem(d);
+});
+
+socket.on('heal', (e) => {
+  addHealCard(e);
+  const current = parseInt(els.stHealed.textContent, 10) || 0;
+  bumpNumber(els.stHealed, current + 1);
+});
+
+socket.on('run.end', (d) => {
+  stopTimer();
+  els.connPill.dataset.status = 'completed';
+  els.connLabel.textContent = 'COMPLETED';
+  showOverlay(d);
+});
+
+function showOverlay(d) {
+  els.ovPassed.textContent = d.passed || 0;
+  els.ovFailed.textContent = d.failed || 0;
+  els.ovHealed.textContent = d.healed || 0;
+  if ((d.failed || 0) > 0) {
+    els.overlayCard.classList.add('failed');
+    els.overlayIcon.textContent = '!';
+    els.overlayTitle.textContent = 'Run Finished with Failures';
+    els.overlaySub.textContent = (d.failed || 0) + ' scenario(s) failed. Check the Allure report for details.';
+  } else {
+    els.overlayCard.classList.remove('failed');
+    els.overlayIcon.textContent = '✓';
+    els.overlayTitle.textContent = 'All Scenarios Passed';
+    els.overlaySub.textContent = ((d.healed || 0) > 0
+      ? (d.healed + ' locator(s) auto-healed during the run. ')
+      : '')
+      + 'Allure report + self-healing dashboard are ready to open.';
+  }
+  els.overlay.classList.add('show');
+}
+</script>
+</body>
+</html>
