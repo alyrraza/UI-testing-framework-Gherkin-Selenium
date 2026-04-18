@@ -52,16 +52,16 @@ system.
 
 New capabilities added:
 
-| Capability                    | New file(s)                                    |
-| :---------------------------- | :--------------------------------------------- |
-| Self-healing locator engine   | `utils/smart_locator.py`                       |
-| Healing event logger          | `utils/healing_logger.py`                      |
-| Post-run HTML + MD report     | `utils/healing_report.py`                      |
-| MutationObserver smart wait   | `utils/smart_wait.py`                          |
-| Live WebSocket dashboard      | `utils/live_dashboard.py`                      |
-| Live dashboard UI             | `templates/dashboard.html`                     |
-| Behave lifecycle integration  | updated `features/environment.py`              |
-| Page objects migrated         | updated `pages/base_page.py` + all page files  |
+| Capability                   | New file(s)                                     |
+| :--------------------------- | :---------------------------------------------- |
+| Self-healing locator engine  | `utils/smart_locator.py`                      |
+| Healing event logger         | `utils/healing_logger.py`                     |
+| Post-run HTML + MD report    | `utils/healing_report.py`                     |
+| MutationObserver smart wait  | `utils/smart_wait.py`                         |
+| Live WebSocket dashboard     | `utils/live_dashboard.py`                     |
+| Live dashboard UI            | `templates/dashboard.html`                    |
+| Behave lifecycle integration | updated `features/environment.py`             |
+| Page objects migrated        | updated `pages/base_page.py` + all page files |
 
 ---
 
@@ -111,6 +111,7 @@ The heart of the system. Defines the `SmartLocator` dataclass and its
 three-stage healing pipeline.
 
 **Responsibilities**
+
 - Holds an **ordered list of locator strategies** per element plus
   healing hints (`expected_tag`, `expected_text`, `description`).
 - `.find(driver)` — tries each strategy in order; if all fail, runs a
@@ -130,6 +131,7 @@ Singleton event recorder. Broadcasts every heal in three directions at
 once: colored console banner, Allure attachment, and live WebSocket frame.
 
 **Responsibilities**
+
 - `HEALING_LOGGER.record(event)` → console print + Allure attach + live emit.
 - `HEALING_LOGGER.bind_scenario(...)` called from `environment.py` so
   each heal is tagged with its feature/scenario.
@@ -145,6 +147,7 @@ once: colored console banner, Allure attachment, and live WebSocket frame.
 Produces the **post-run healing artifacts** once the suite finishes.
 
 **Responsibilities**
+
 - `generate_all()` → writes
   `healing-report/index.html` (animated dark-theme dashboard) and
   `healing-report/suggested_fixes.md` (ready-to-paste code fix diff).
@@ -162,6 +165,7 @@ Replaces flaky `time.sleep()` calls across the framework with actual
 **DOM-stability detection**.
 
 **Responsibilities**
+
 - Injects a `MutationObserver` into the page via `driver.execute_script`.
 - Polls a single boolean flag — “has the DOM been quiet for 400 ms?”
 - `wait_for_page_ready()` one-liner combines `document.readyState === 'complete'`
@@ -180,6 +184,7 @@ Flask-SocketIO server that runs on a daemon thread alongside the test
 process. Exposes a thread-safe emit API the behave hooks call into.
 
 **Responsibilities**
+
 - `.start()` on `before_all`: finds a free port (5555+), opens the browser
   tab, binds Flask routes, starts the Socket.IO background loop.
 - Keeps an authoritative `state` dict — late-joining browser tabs receive
@@ -187,6 +192,7 @@ process. Exposes a thread-safe emit API the behave hooks call into.
 - Silently no-ops in CI (`CI=true`) or when Flask isn't installed.
 
 **Events emitted (WebSocket)**
+
 ```
 run.start    {total_scenarios, started_at}
 feature.start / feature.end
@@ -207,6 +213,7 @@ state.snapshot  (on new connection)
 Single-file live dashboard served at `http://127.0.0.1:5555/`.
 
 **UI features**
+
 - Gradient logo mark + connection pill with pulsing dot
 - Live elapsed timer
 - Hero card: current Feature / Scenario / Step with tag pills + running
@@ -231,13 +238,13 @@ All four page files now declare every element as a `SmartLocator` with
 (`login()`, `click_checkout()`, etc.) are unchanged from the caller's
 perspective.
 
-| File                                               | What changed                           |
-| :------------------------------------------------- | :------------------------------------- |
-| [`pages/base_page.py`](pages/base_page.py)          | `click`, `type`, `get_text`, `is_visible` now accept `SmartLocator` or a tuple. Uses `SmartWait` for page readiness. |
-| [`pages/login_page.py`](pages/login_page.py)        | 4 elements migrated: username, password, login button, error message |
-| [`pages/inventory_page.py`](pages/inventory_page.py)| 6 elements migrated: title, cart badge / icon, burger menu, logout link |
-| [`pages/cart_page.py`](pages/cart_page.py)          | 4 elements migrated: cart items, checkout / continue buttons, item name |
-| [`pages/checkout_page.py`](pages/checkout_page.py)  | 8 elements migrated across step 1, summary, complete pages |
+| File                                                | What changed                                                                                                                     |
+| :-------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| [`pages/base_page.py`](pages/base_page.py)           | `click`, `type`, `get_text`, `is_visible` now accept `SmartLocator` or a tuple. Uses `SmartWait` for page readiness. |
+| [`pages/login_page.py`](pages/login_page.py)         | 4 elements migrated: username, password, login button, error message                                                             |
+| [`pages/inventory_page.py`](pages/inventory_page.py) | 6 elements migrated: title, cart badge / icon, burger menu, logout link                                                          |
+| [`pages/cart_page.py`](pages/cart_page.py)           | 4 elements migrated: cart items, checkout / continue buttons, item name                                                          |
+| [`pages/checkout_page.py`](pages/checkout_page.py)   | 8 elements migrated across step 1, summary, complete pages                                                                       |
 
 ---
 
@@ -247,15 +254,15 @@ perspective.
 
 The glue that ties every subsystem into the behave lifecycle.
 
-| Hook              | Actions                                                                    |
-| :---------------- | :------------------------------------------------------------------------- |
-| `before_all`      | Reset `HEALING_LOGGER`, start live dashboard, open browser tab, emit `run.start`, print banner |
-| `before_feature`  | `LIVE.feature_start(name)`                                                 |
-| `before_scenario` | Spin up WebDriver, tag heal events with scenario name, emit `scenario.start` |
-| `before_step`     | Record start time, emit `step.start`                                       |
-| `after_step`      | Compute duration, emit `step.end` with `passed` / `failed` / duration      |
-| `after_scenario`  | Attach screenshot on failure, quit WebDriver, emit `scenario.end`          |
-| `after_feature`   | Emit `feature.end`                                                         |
+| Hook                | Actions                                                                                                               |
+| :------------------ | :-------------------------------------------------------------------------------------------------------------------- |
+| `before_all`      | Reset `HEALING_LOGGER`, start live dashboard, open browser tab, emit `run.start`, print banner                    |
+| `before_feature`  | `LIVE.feature_start(name)`                                                                                          |
+| `before_scenario` | Spin up WebDriver, tag heal events with scenario name, emit `scenario.start`                                        |
+| `before_step`     | Record start time, emit `step.start`                                                                                |
+| `after_step`      | Compute duration, emit `step.end` with `passed` / `failed` / duration                                           |
+| `after_scenario`  | Attach screenshot on failure, quit WebDriver, emit `scenario.end`                                                   |
+| `after_feature`   | Emit `feature.end`                                                                                                  |
 | `after_all`       | Print heal summary, generate `healing-report/`, emit `run.end`, linger 2s so the browser receives the final frame |
 
 ---
@@ -288,6 +295,7 @@ environment.before_all(context)
 ```
 
 At this moment:
+
 - The terminal shows the `SELF-HEALING TEST FRAMEWORK` banner.
 - A browser tab opens showing the empty Live Dashboard with a
   "CONNECTING…" pill that switches to "LIVE" within ~200 ms.
@@ -451,225 +459,6 @@ LOGIN_BUTTON = SmartLocator(
 
 Re-run `python run_tests.py`. Watch the SELF-HEAL banner in the
 terminal and the purple heal card appear in the live dashboard.
-
----
-
-## How to record the portfolio video
-
-Total length target: **60–90 seconds**. Optimized for LinkedIn, Twitter,
-and YouTube Shorts.
-
-### Tools
-
-- **Recorder**: OBS Studio (free), Windows Game Bar (`Win + G`), or
-  ScreenToGif. macOS: QuickTime or Screen Studio.
-- **Terminal**: Windows Terminal with a dark theme (One Half Dark,
-  Dracula). Font size: **16–18 pt** so banners read on camera.
-- **Browser**: Chrome or Edge, **zoom 110–125%** when showing the dashboards.
-- **Editor**: VS Code, dark theme, font **15 pt+**. Close the sidebar so
-  the code fills the frame.
-
-### Shot list (6 shots, ~75 seconds total)
-
-#### Shot 1 — Title card (3 s)
-
-Open `README.md` scrolled to the very top. Hold on the tagline:
-
-> **UI Testing Framework — Self-Healing Edition**
-> ...upgraded by **Claude Opus 4.7**...
-
-#### Shot 2 — Before state: everything green (12 s)
-
-Run the suite on the untouched repo:
-
-```bash
-python run_tests.py
-```
-
-As it starts:
-- Show the terminal banner (`SELF-HEALING TEST FRAMEWORK · engineered by
-  Claude Opus 4.7`).
-- **Cut to the browser tab that auto-opened** — the live dashboard.
-- Let the viewer see scenarios tick through, stats counter bumping
-  (Passed → 1, 2, 3…), progress ring filling.
-- End state: all green, `Self-healing summary: 0 repairs`.
-
-**Voiceover:** *“This is a Selenium + Gherkin test suite. When I hit run,
-a live dashboard opens in my browser. Every step, every scenario,
-real-time over WebSocket. All green.”*
-
-#### Shot 3 — The sabotage (10 s)
-
-Open `pages/login_page.py` in your editor. Highlight the
-`LOGIN_BUTTON.strategies` list and edit the first tuple's value to
-`"button-renamed-by-dev"`. Save.
-
-**Voiceover:** *“Now imagine a developer renames an ID overnight. In a
-normal suite, every test using that locator breaks. Watch what happens
-here.”*
-
-#### Shot 4 — The magic (25 s)
-
-Re-run:
-
-```bash
-python run_tests.py
-```
-
-Split-screen if possible: terminal on the left, live dashboard on the
-right.
-
-- **The `SELF-HEAL` banner** fires in the terminal with a green label and
-  the before/after locators.
-- **A purple heal card slides into the live dashboard** with the red →
-  green diff and the confidence chip.
-- **Tests still pass.** The completion overlay shows the green check.
-
-**Voiceover:** *“The framework tried the primary ID, it failed, it
-cascaded to the fallback, healed the test, and told me exactly what
-happened — all in real time.”*
-
-#### Shot 5 — The post-run dashboard (15 s)
-
-Open the generated report:
-
-```bash
-start healing-report/index.html
-```
-
-Pan slowly across:
-
-1. The **hero section** — "ENGINEERED BY CLAUDE OPUS 4.7" tagline.
-2. The **four stat cards** (Total Heals / Avg Confidence / Fallback / Similarity).
-3. **One heal card** — original locator in red, healed locator in green,
-   confidence chip, screenshot thumbnail.
-
-**Voiceover:** *“Every heal is documented — original, healed,
-confidence, screenshot. And there's a markdown file with the exact
-diffs to apply permanently.”*
-
-#### Shot 6 — Sign-off (5 s)
-
-Back to the README, scroll to **Credits**. Hold 2 seconds on:
-
-> Self-healing engine, smart wait, live dashboard, healing report,
-> suggested-fixes generator, Allure integration: **Claude Opus 4.7**.
-
-Freeze frame. End.
-
-### Editing tips
-
-- **Never speed up** the moment the `SELF-HEAL` banner appears or the
-  heal card slides in — those are the money shots.
-- **Do speed up** driver startup and page navigation by 1.5×–2×.
-- **Pre-resize your terminal** to 120×32 before recording so banners
-  don't wrap.
-- **Hide sidebars** in VS Code (`Ctrl+B`) and close minimaps so code
-  fills the frame.
-- **Record at 1080p minimum**, 60fps if possible (smooth scroll of the
-  post-run dashboard animations).
-- **Subtitles beat narration** on LinkedIn — most viewers watch muted.
-
----
-
-## LinkedIn caption templates
-
-Pick one and edit. All three are under LinkedIn's character limit.
-
-### Caption A — "unkillable tests" (long-form)
-
-> most people don't realize how fragile their test suites actually are.
->
-> one developer renames a CSS ID overnight.
-> every test using that locator breaks.
-> the QA team spends the next morning hunting down selectors instead of shipping.
->
-> I wanted to see what Claude Opus 4.7 would do if I gave it this exact problem.
->
-> I handed it my complete Selenium + Gherkin framework and asked it to make
-> the tests impossible to break.
->
-> it built:
->
-> a three-stage self-healing engine
-> → tries every declared fallback first
-> → if all fail, scans the live DOM
-> → scores every candidate by tag, text, and attribute similarity
-> → picks the highest confidence match
-> → test still passes
->
-> a MutationObserver-based smart wait
-> → no more time.sleep() calls
-> → waits until the DOM is actually quiet
-> → faster and immune to React re-renders
->
-> a real-time WebSocket dashboard
-> → opens a browser tab automatically when tests start
-> → streams every feature, scenario, step, and heal event live
-> → animated counters, progress ring, dual feeds, completion overlay
->
-> a post-run healing dashboard
-> → dark theme, self-contained HTML
-> → every heal: original locator, healed locator, confidence, screenshot
-> → suggested_fixes.md — paste directly into your page object
->
-> then I broke it on purpose.
->
-> changed 3 locators to ones that don't exist.
-> ran the suite.
-> watched it heal itself in real-time in the browser dashboard.
-> all tests: green.
-> no Claude API calls at runtime — all the intelligence is in the code it wrote.
->
-> this is how Healenium works in production.
-> Claude rebuilt the concept — plus a live dashboard — in a single session.
->
-> the part that got me — it also told me exactly which locators to fix permanently.
->
-> not "AI wrote my tests."
-> AI made my tests unkillable.
->
-> github link in comments 👇
->
-> #SoftwareTesting #QAEngineering #TestAutomation #Selenium #Claude
-> #AIEngineering #Python #BDD #Gherkin #LearningInPublic #FASTNuces
-
-### Caption B — "AI-native engineering" (short)
-
-> I gave Claude Opus 4.7 a complete brief.
->
-> it built a live WebSocket dashboard that visualizes every test step in real-time,
-> a three-stage self-healing locator engine, and a MutationObserver-based smart wait.
->
-> when I broke my locators on purpose, the tests healed themselves.
-> no API calls at runtime — pure engineering in the code it wrote.
->
-> this is what AI-native engineering looks like.
->
-> repo in comments 👇
->
-> #Claude #TestAutomation #Selenium #AIEngineering #QA
-
-### Caption C — "before / after" (punchy)
-
-> my Selenium test suite, yesterday:
-> — one renamed ID broke 12 tests
-> — 40 minutes of selector archaeology
-> — time.sleep(1) sprinkled like seasoning
->
-> my Selenium test suite, today (after Claude Opus 4.7):
-> — broken IDs heal themselves at runtime
-> — DOM stability detected via MutationObserver, not hardcoded sleeps
-> — live browser dashboard streams every step over WebSocket
-> — post-run report tells me exactly which selectors to fix for good
->
-> same framework. different species.
->
-> repo 👇
->
-> #Claude #Selenium #TestAutomation #AIEngineering
-
----
 
 ## Credits
 
